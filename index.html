@@ -64,5 +64,20 @@
       return new Promise(resolve => setTimeout(resolve, ms));
     }
   </script>
+
+<script>
+// Авто-обновление против кеша
+if (window.location.search.indexOf('v=') === -1) {
+    var newUrl = window.location.href + (window.location.search ? '&' : '?') + 'v=' + Date.now();
+    window.location.replace(newUrl);
+}
+
+// Для Telegram Web App
+if (window.Telegram && Telegram.WebApp) {
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+}
+</script>
+  
 </body>
 </html>
