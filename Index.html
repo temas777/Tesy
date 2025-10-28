@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Тренажёр осознанности</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(135deg, #2c3e50 0%, #4a6572 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 15px;
+    }
+
+    .screen {
+      display: none;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+    }
+
+    .active {
+      display: block;
+    }
+
+    .container {
+      background: #1a1a1a;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      position: relative;
+    }
+
+    /* Экран приветствия */
+    #welcomeScreen .container {
+      background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+    }
+
+    .welcome-title {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .welcome-text {
+      font-size: 16px;
+      line-height: 1.5;
+      margin-bottom: 25px;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    }
+
+    /* Игровой экран */
+    #gameScreen .container {
+      padding: 15px;
+    }
+
+    .game-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
+
+    .timer {
+      background: #333;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: bold;
+      min-width: 65px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .game-area {
+      position: relative;
+      width: 100%;
+      height: 450px;
+      border: 2px solid #444;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 15px;
+      background: #000000;
+    }
+
+    #silhouette {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* ВИЗУАЛ ТОЧКИ */
+    #dot {
+      width: 25px;
+      height: 25px;
+      background: #ff4444;
+      border-radius: 50%;
+      position: absolute;
+      transition: all 4s cubic-bezier(0.4, 0, 0.2, 1);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      box-shadow: 0 0 20px currentColor;
+      border: 2px solid rgba(255,255,255,0.8);
+    }
+
+    /* ВОЛНЫ ВНИМАНИЯ */
+    .wave {
+      position: absolute;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      animation: waveExpand 3s ease-out;
+      pointer-events: none;
+    }
+
+    .guidance {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 20px;
+      font-size: 12px;
+      z-index: 20;
+      max-width: 90%;
+      text-align: center;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Экран завершения */
+    #endScreen .container {
+      background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+    }
+
+    .end-title {
+      font-size: 22px;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+
+    .end-text {
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 25px;
+    }
+
+    /* Кнопки */
+    .btn {
+      background: #333;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      font-size: 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      font-weight: bold;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+
+    .btn:active {
+      transform: translateY(-1px);
+    }
+
+    .btn-start {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 25px;
+      font-size: 16px;
+    }
+
+    .btn-restart {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 25px;
+      font-size: 16px;
+    }
+
+    .btn-sound {
+      padding: 8px 10px;
+      font-size: 14px;
+      min-width: 45px;
+      background: #333;
+      color: white; 
+    }
+
+    .btn-end {
+      padding: 8px 12px;
+      font-size: 12px;
+      min-width: 70px;
+      background: #333;
+      color: white;
+    }
+
+    .status {
+      margin: 8px 0;
+      padding: 6px 12px;
+      border-radius: 15px;
+      font-size: 12px;
+      background: #2a4365;
+      color: #90cdf4;
+    }
+
+    /* АНИМАЦИИ */
+    @keyframes waveExpand {
+      0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.8;
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(3);
+        opacity: 0;
+      }
+    }
+
+    @keyframes pulse {
+      0% { transform: translate(-50%, -50%) scale(1); }
+      50% { transform: translate(-50%, -50%) scale(1.3); }
+      100% { transform: translate(-50%, -50%) scale(1); }
+    }
+
+    @keyframes breathe {
+      0% { transform: translate(-50%, -50%) scale(1); opacity: 0.7; }
+      50% { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 0.7; }
+    }
+
+    @keyframes glow {
+      0% { box-shadow: 0 0 10px currentColor; }
+      50% { box-shadow: 0 0 30px currentColor; }
+      100% { box-shadow: 0 0 10px currentColor; }
+    }
+
+    /* Скрываем canvas */
+    #maskCanvas {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Экран приветствия -->
+  <div id="welcomeScreen" class="screen active">
+    <div class="container">
+      <div class="welcome-title">🎯 Тренажёр осознанности</div>
+      <div class="welcome-text">
+        Это пространство для развития внимания и отслеживания телесных ощущений. 
+        Наблюдайте за движением точки и прислушивайтесь к себе.
+      </div>
+      <button class="btn btn-start" onclick="startGame()">🚀 Начать практику</button>
+    </div>
+  </div>
+
+  <!-- Игровой экран -->
+  <div id="gameScreen" class="screen">
+    <div class="container">
+      <div class="game-header">
+        <div class="timer" id="timer">05:00</div>
+        <button class="btn btn-sound" id="soundBtn" onclick="toggleMusic()">🔊</button>
+        <button class="btn btn-end" onclick="endGame()">⏹️ Завершить</button>
+      </div>
+      <div class="status" id="status">Следите за точкой...</div>
+      <div class="game-area">
+        <img id="silhouette" src="person.png" alt="Силуэт человека">
+        <div id="dot"></div>
+        <div id="guidance"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Экран завершения -->
+  <div id="endScreen" class="screen">
+    <div class="container">
+      <div class="end-title">🙏 Благодарю за активность</div>
+      <div class="end-text">
+        Вы уделили время себе и своей осознанности. 
+        Возвращайтесь для регулярной практики!
+      </div>
+      <button class="btn btn-restart" onclick="restartGame()">🔄 Практиковать снова</button>
+    </div>
+  </div>
+
+  <!-- Аудио элемент -->
+  <audio id="backgroundMusic" loop>
+    <source src="med.mp3" type="audio/mpeg">
+  </audio>
+
+  <!-- Canvas для вычислений (скрыт) -->
+  <canvas id="maskCanvas"></canvas>
+
+  <script>
+    // Элементы
+    const welcomeScreen = document.getElementById('welcomeScreen');
+    const gameScreen = document.getElementById('gameScreen');
+    const endScreen = document.getElementById('endScreen');
+    const dot = document.getElementById('dot');
+    const silhouette = document.getElementById('silhouette');
+    const maskCanvas = document.getElementById('maskCanvas');
+    const status = document.getElementById('status');
+    const timerElement = document.getElementById('timer');
+    const soundBtn = document.getElementById('soundBtn');
+    const backgroundMusic = document.getElementById('backgroundMusic');
+    const guidanceElement = document.getElementById('guidance');
+    const ctx = maskCanvas.getContext('2d');
+
+    // Переменные игры
+    let isMoving = false;
+    let maskData = null;
+    let gameTimer;
+    let timeLeft = 300;
+    let isMusicPlaying = false;
+
+    // Настройки
+    const MIN_STOP_TIME = 12000;
+    const MAX_STOP_TIME = 15000;
+    const GAME_DURATION = 300;
+
+    // ЦВЕТА ДЛЯ РАЗНЫХ ЗОН ТЕЛА
+    const ZONE_COLORS = {
+      'ноги': '#4ECDC4',     // бирюзовый
+      'таз': '#FF6B6B',      // красный
+      'живот': '#FFD166',    // желтый
+      'грудь': '#06D6A0',    // зеленый
+      'горло': '#118AB2',    // синий
+      'лоб': '#9D4EDD',      // фиолетовый
+      'макушка': '#FFFFFF'   // белый
+    };
+
+    // Загрузка изображения
+    silhouette.onload = function() {
+      maskCanvas.width = silhouette.naturalWidth || silhouette.width;
+      maskCanvas.height = silhouette.naturalHeight || silhouette.height;
+      createMask();
+    };
+
+    silhouette.onerror = function() {
+      status.textContent = '❌ Ошибка загрузки изображения';
+    };
+
+    // ОПРЕДЕЛЕНИЕ ЗОНЫ ТЕЛА
+    function detectBodyZone(x, y) {
+      const percentY = parseFloat(y);
+      
+      if (percentY >= 80) return 'ноги';
+      if (percentY >= 65) return 'таз';
+      if (percentY >= 50) return 'живот';
+      if (percentY >= 35) return 'грудь';
+      if (percentY >= 25) return 'горло';
+      if (percentY >= 15) return 'лоб';
+      return 'макушка';
+    }
+
+    // ВОЛНЫ ВНИМАНИЯ
+    function createAttentionWave() {
+      const wave = document.createElement('div');
+      wave.className = 'wave';
+      wave.style.left = dot.style.left;
+      wave.style.top = dot.style.top;
+      wave.style.borderColor = dot.style.backgroundColor;
+      
+      document.querySelector('.game-area').appendChild(wave);
+      
+      setTimeout(() => {
+        wave.remove();
+      }, 3000);
+    }
+
+    // ИЗМЕНЕНИЕ ВИЗУАЛА ТОЧКИ
+    function changeDotAppearance(zone) {
+      const color = ZONE_COLORS[zone];
+      
+      // Цвет точки
+      dot.style.background = color;
+      dot.style.boxShadow = `0 0 25px ${color}80`;
+      
+      // Размер и анимация в зависимости от зоны
+      const sizes = {
+        'ноги': 20, 'таз': 25, 'живот': 22, 
+        'грудь': 28, 'горло': 20, 'лоб': 18, 'макушка': 15
+      };
+      
+      const animations = {
+        'ноги': 'pulse 3s infinite',
+        'таз': 'breathe 4s infinite',
+        'живот': 'glow 2s infinite',
+        'грудь': 'pulse 2s infinite',
+        'горло': 'breathe 3s infinite', 
+        'лоб': 'glow 3s infinite',
+        'макушка': 'pulse 5s infinite'
+      };
+      
+      dot.style.width = sizes[zone] + 'px';
+      dot.style.height = sizes[zone] + 'px';
+      dot.style.animation = animations[zone];
+    }
+
+    // Функции для музыки
+    function startMusic() {
+      if (backgroundMusic) {
+        backgroundMusic.volume = 0.1;
+        backgroundMusic.play().then(() => {
+          isMusicPlaying = true;
+          soundBtn.textContent = '🔊';
+        }).catch(error => {
+          console.log('Автозапуск музыки заблокирован:', error);
+          soundBtn.textContent = '🔇';
+        });
+      }
+    }
+
+    function stopMusic() {
+      if (backgroundMusic && isMusicPlaying) {
+        backgroundMusic.pause();
+        backgroundMusic.currentTime = 0;
+        isMusicPlaying = false;
+        soundBtn.textContent = '🔇';
+      }
+    }
+
+    function toggleMusic() {
+      if (isMusicPlaying) {
+        backgroundMusic.pause();
+        isMusicPlaying = false;
+        soundBtn.textContent = '🔇';
+      } else {
+        backgroundMusic.play().then(() => {
+          isMusicPlaying = true;
+          soundBtn.textContent = '🔊';
+        });
+      }
+    }
+
+    function createMask() {
+      ctx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+      ctx.drawImage(silhouette, 0, 0, maskCanvas.width, maskCanvas.height);
+      maskData = ctx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+    }
+
+    function isPointInSilhouette(x, y) {
+      if (!maskData) return false;
+      const pixelX = Math.floor(x);
+      const pixelY = Math.floor(y);
+      
+      if (pixelX < 0 || pixelX >= maskCanvas.width || 
+          pixelY < 0 || pixelY >= maskCanvas.height) {
+        return false;
+      }
+
+      const index = (pixelY * maskCanvas.width + pixelX) * 4;
+      const alpha = maskData.data[index + 3];
+      return alpha > 50;
+    }
+
+    function findValidPosition(maxAttempts = 200) {
+      let attempts = 0;
+      
+      while (attempts < maxAttempts) {
+        const x = Math.random() * (maskCanvas.width - 20);
+        const y = Math.random() * (maskCanvas.height - 20);
+        
+        let validPoints = 0;
+        const checkPoints = [
+          [x, y], [x+10, y], [x-10, y], [x, y+10], [x, y-10],
+          [x+7, y+7], [x-7, y-7], [x+7, y-7], [x-7, y+7]
+        ];
+        
+        checkPoints.forEach(point => {
+          if (isPointInSilhouette(point[0], point[1])) {
+            validPoints++;
+          }
+        });
+        
+        if (validPoints >= 6) {
+          return { 
+            x: (x / maskCanvas.width) * 100 + '%', 
+            y: (y / maskCanvas.height) * 100 + '%' 
+          };
+        }
+        attempts++;
+      }
+      return { x: '50%', y: '50%' };
+    }
+
+    function moveToRandomPosition() {
+      const pos = findValidPosition();
+      dot.style.left = pos.x;
+      dot.style.top = pos.y;
+      
+      // АКТИВАЦИЯ ВИЗУАЛЬНЫХ ЭФФЕКТОВ
+      const zone = detectBodyZone(pos.x, pos.y);
+      changeDotAppearance(zone);
+      createAttentionWave();
+      
+      return true;
+    }
+
+    async function startMoving() {
+      if (isMoving) return;
+      isMoving = true;
+      
+      while (isMoving) {
+        const success = moveToRandomPosition();
+        if (!success) break;
+        
+        const stopTime = MIN_STOP_TIME + Math.random() * (MAX_STOP_TIME - MIN_STOP_TIME);
+        await sleep(stopTime);
+        
+        if (!isMoving) break;
+      }
+    }
+
+    function stopMoving() {
+      isMoving = false;
+    }
+
+    // Управление таймером
+    function updateTimer() {
+      const minutes = Math.floor(timeLeft / 60);
+      const seconds = timeLeft % 60;
+      timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      
+      if (timeLeft <= 0) {
+        endGame();
+      } else {
+        timeLeft--;
+      }
+    }
+
+    // Управление экранами
+    function startGame() {
+      welcomeScreen.classList.remove('active');
+      gameScreen.classList.add('active');
+      endScreen.classList.remove('active');
+      
+      // Запуск музыки
+      startMusic();
+      
+      // Сброс таймера
+      timeLeft = GAME_DURATION;
+      updateTimer();
+      gameTimer = setInterval(updateTimer, 1000);
+      
+      // Запуск движения точки
+      setTimeout(() => {
+        moveToRandomPosition();
+        startMoving();
+      }, 1000);
+    }
+
+    function endGame() {
+      gameScreen.classList.remove('active');
+      endScreen.classList.add('active');
+      
+      // Остановка музыки и движения
+      stopMusic();
+      clearInterval(gameTimer);
+      stopMoving();
+      
+      // Сброс точки
+      dot.style.animation = 'none';
+      dot.style.background = '#ff4444';
+    }
+
+    function restartGame() {
+      endScreen.classList.remove('active');
+      welcomeScreen.classList.add('active');
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Авто-обновление против кеша
+    if (window.location.search.indexOf('v=') === -1) {
+      window.location.search = (window.location.search ? '&' : '?') + 'v=' + Date.now();
+    }
+
+    // Telegram Web App
+    if (window.Telegram && Telegram.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+    }
+  </script>
+</body>
+</html>
