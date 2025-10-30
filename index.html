@@ -755,5 +755,33 @@
       lastTouchEnd = now;
     }, false);
   </script>
+
+<script>
+// УМНОЕ КЕШИРОВАНИЕ
+// Меняй эту версию только когда нужно принудительное обновление
+const APP_VERSION = "1.0.0";
+
+// Автоматически добавляем версию ко всем ресурсам
+function enableSmartCaching() {
+    const resources = [
+        ...document.querySelectorAll('link[rel="stylesheet"]'),
+        ...document.querySelectorAll('script[src]'),
+        ...document.querySelectorAll('img[src]')
+    ];
+    
+    resources.forEach(resource => {
+        const url = resource.src || resource.href;
+        if (url && !url.includes('?') && !url.includes('cdn.')) {
+            const newUrl = url.split('?')[0] + '?v=' + APP_VERSION;
+            if (resource.src) resource.src = newUrl;
+            if (resource.href) resource.href = newUrl;
+        }
+    });
+}
+
+// Запускаем при загрузке
+document.addEventListener('DOMContentLoaded', enableSmartCaching);
+</script>
+  
 </body>
 </html>
