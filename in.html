@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Тренажёр осознанности</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    /* Существующие стили остаются */
+    
+    /* НОВЫЕ СТИЛИ ДЛЯ АНИМАЦИИ ПОБЕДЫ */
+    .victory-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      flex-direction: column;
+    }
+    
+    .victory-message {
+      background: rgba(255,255,255,0.95);
+      padding: 20px;
+      border-radius: 20px;
+      text-align: center;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    
+    .victory-title {
+      font-size: 24px;
+      font-weight: bold;
+      color: #764ba2;
+      margin-bottom: 10px;
+    }
+    
+    .victory-text {
+      font-size: 16px;
+      color: #333;
+    }
+    
+    /* АНИМАЦИИ ТАНЦУЮЩЕГО СИЛУЭТА */
+    @keyframes dance {
+      0% { transform: translateX(0) rotate(0deg) scale(1); }
+      25% { transform: translateX(-15px) rotate(-8deg) scale(1.05); }
+      50% { transform: translateX(15px) rotate(8deg) scale(1.1); }
+      75% { transform: translateX(-10px) rotate(-4deg) scale(1.05); }
+      100% { transform: translateX(0) rotate(0deg) scale(1); }
+    }
+    
+    @keyframes glow {
+      0% { filter: brightness(1) drop-shadow(0 0 10px #ff0080); }
+      25% { filter: brightness(1.3) drop-shadow(0 0 20px #00ff88); }
+      50% { filter: brightness(1.5) drop-shadow(0 0 30px #0080ff); }
+      75% { filter: brightness(1.3) drop-shadow(0 0 20px #ff0080); }
+      100% { filter: brightness(1) drop-shadow(0 0 10px #00ff88); }
+    }
+    
+    @keyframes colorShift {
+      0% { filter: hue-rotate(0deg); }
+      33% { filter: hue-rotate(120deg); }
+      66% { filter: hue-rotate(240deg); }
+      100% { filter: hue-rotate(360deg); }
+    }
+    
+    .dancing-silhouette {
+      animation: 
+        dance 2s ease-in-out infinite,
+        glow 3s ease-in-out infinite,
+        colorShift 6s linear infinite;
+    }
+    
+    /* КОНФЕТТИ */
+    .confetti {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: #ff0000;
+      border-radius: 50%;
+      animation: confetti-fall 3s linear forwards;
+    }
+    
+    @keyframes confetti-fall {
+      0% {
+        transform: translateY(-100px) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
+    
+    /* ЭНЕРГЕТИЧЕСКИЕ ВОЛНЫ */
+    .energy-wave {
+      position: absolute;
+      border: 3px solid;
+      border-radius: 50%;
+      animation: energy-expand 2s ease-out;
+      pointer-events: none;
+    }
+    
+    @keyframes energy-expand {
+      0% {
+        transform: translate(-50%, -50%) scale(0.5);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(3);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Лоадер -->
+  <div id="loader" class="loader">
+    <div>Загрузка тренажёра...</div>
+  </div>
+
+  <!-- НОВЫЙ ЭКРАН ПОБЕДЫ -->
+  <div id="victoryScreen" class="victory-overlay">
+    <div class="victory-message">
+      <div class="victory-title">🎉 Поздравляем!</div>
+      <div class="victory-text">Вы достигли осознанности!</div>
+    </div>
+    <div class="game-area" style="border: none; background: transparent;">
+      <img id="dancingSilhouette" src="person.png" alt="Танцующий силуэт" style="width: 100%; height: 100%; object-fit: contain;">
+    </div>
+  </div>
+
+  <!-- Остальная разметка без изменений -->
+  <div id="welcomeScreen" class="screen">
+    <!-- ... существующий код ... -->
+  </div>
+
+  <div id="gameScreen" class="screen">
+    <!-- ... существующий код ... -->
+  </div>
+
+  <div id="endScreen" class="screen">
+    <!-- ... существующий код ... -->
+  </div>
+
+  <!-- Аудио элемент -->
+  <audio id="backgroundMusic" loop preload="metadata">
+    <source src="med.mp3" type="audio/mpeg">
+  </audio>
+  
+  <!-- НОВЫЙ АУДИО ДЛЯ ФАНФАР -->
+  <audio id="victoryMusic" preload="metadata">
+    <source src="fanfare.mp3" type="audio/mpeg">
+  </audio>
+
+  <canvas id="maskCanvas"></canvas>
+
+  <script>
+// Элементы
+const welcomeScreen = document.getElementById('welcomeScreen');
+const gameScreen = document.getElementById('gameScreen');
+const endScreen = document.getElementById('endScreen');
+const victoryScreen = document.getElementById('victoryScreen');
+const loader = document.getElementById('loader');
+const dot = document.getElementById('dot');
+const silhouette = document.getElementById('silhouette');
+const dancingSilhouette = document.getElementById('dancingSilhouette');
+const maskCanvas = document.getElementById('maskCanvas');
+const status = document.getElementById('status');
+const timerElement = document.getElementById('timer');
+const soundBtn = document.getElementById('soundBtn');
+const backgroundMusic = document.getElementById('backgroundMusic');
+const victoryMusic = document.getElementById('victoryMusic');
+const guidanceElement = document.getElementById('guidance');
+const ctx = maskCanvas.getContext('2d');
+
+// Переменные игры
+let isMoving = false;
+let maskData = null;
+let gameTimer;
+let timeLeft = 300;
+let isMusicPlaying = false;
+let wakeLock = null;
+let inactivityTimer = null;
+
+// НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ АНИМАЦИИ
+let victoryAnimationActive = false;
+let confettiInterval = null;
+let energyWaveInterval = null;
+
+// Настройки
+const MIN_STOP_TIME = 12000;
+const MAX_STOP_TIME = 15000;
+const GAME_DURATION = 300;
+const VICTORY_DURATION = 10000; // 10 секунд анимации
+
+// ЦВЕТА ДЛЯ РАЗНЫХ ЗОН ТЕЛА
+const ZONE_COLORS = {
+  'ноги': '#4ECDC4',     // бирюзовый
+  'таз': '#FF6B6B',      // красный
+  'живот': '#FFD166',    // желтый
+  'грудь': '#06D6A0',    // зеленый
+  'горло': '#118AB2',    // синий
+  'лоб': '#9D4EDD',      // фиолетовый
+  'макушка': '#FFFFFF'   // белый
+};
+
+// НОВЫЕ ФУНКЦИИ ДЛЯ АНИМАЦИИ ПОБЕДЫ
+function startVictoryAnimation() {
+  if (victoryAnimationActive) return;
+  victoryAnimationActive = true;
+  
+  // Показываем экран победы
+  victoryScreen.style.display = 'flex';
+  
+  // Запускаем танцующего силуэта
+  dancingSilhouette.classList.add('dancing-silhouette');
+  
+  // Воспроизводим фанфары
+  playVictoryMusic();
+  
+  // Запускаем конфетти
+  startConfetti();
+  
+  // Запускаем энергетические волны
+  startEnergyWaves();
+  
+  // Автоматически завершаем через 10 секунд
+  setTimeout(() => {
+    endVictoryAnimation();
+  }, VICTORY_DURATION);
+}
+
+function endVictoryAnimation() {
+  victoryAnimationActive = false;
+  
+  // Скрываем экран победы
+  victoryScreen.style.display = 'none';
+  
+  // Останавливаем анимации
+  dancingSilhouette.classList.remove('dancing-silhouette');
+  
+  // Останавливаем музыку
+  stopVictoryMusic();
+  
+  // Очищаем интервалы
+  if (confettiInterval) {
+    clearInterval(confettiInterval);
+    confettiInterval = null;
+  }
+  
+  if (energyWaveInterval) {
+    clearInterval(energyWaveInterval);
+    energyWaveInterval = null;
+  }
+  
+  // Переходим на обычный экран завершения
+  showEndScreen();
+}
+
+function playVictoryMusic() {
+  if (victoryMusic) {
+    victoryMusic.volume = 0.3;
+    victoryMusic.play().catch(e => {
+      console.log('Не удалось воспроизвести фанфары:', e);
+    });
+  }
+}
+
+function stopVictoryMusic() {
+  if (victoryMusic) {
+    victoryMusic.pause();
+    victoryMusic.currentTime = 0;
+  }
+}
+
+function startConfetti() {
+  // Создаем конфетти каждые 200ms
+  confettiInterval = setInterval(() => {
+    createConfetti();
+  }, 200);
+}
+
+function createConfetti() {
+  const confetti = document.createElement('div');
+  confetti.className = 'confetti';
+  
+  // Случайная позиция вверху экрана
+  const left = Math.random() * 100;
+  confetti.style.left = left + '%';
+  
+  // Случайный цвет
+  const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  confetti.style.background = color;
+  
+  // Случайный размер
+  const size = 5 + Math.random() * 10;
+  confetti.style.width = size + 'px';
+  confetti.style.height = size + 'px';
+  
+  // Случайная длительность
+  const duration = 2 + Math.random() * 2;
+  confetti.style.animationDuration = duration + 's';
+  
+  victoryScreen.appendChild(confetti);
+  
+  // Удаляем конфетти после анимации
+  setTimeout(() => {
+    if (confetti.parentNode) {
+      confetti.remove();
+    }
+  }, duration * 1000);
+}
+
+function startEnergyWaves() {
+  // Создаем энергетические волны каждые 800ms
+  energyWaveInterval = setInterval(() => {
+    createEnergyWave();
+  }, 800);
+}
+
+function createEnergyWave() {
+  const wave = document.createElement('div');
+  wave.className = 'energy-wave';
+  
+  // Центрируем вокруг силуэта
+  wave.style.left = '50%';
+  wave.style.top = '50%';
+  
+  // Случайный цвет
+  const colors = ['#ff0080', '#00ff88', '#0080ff', '#ff8000'];
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  wave.style.borderColor = color;
+  
+  victoryScreen.appendChild(wave);
+  
+  // Удаляем волну после анимации
+  setTimeout(() => {
+    if (wave.parentNode) {
+      wave.remove();
+    }
+  }, 2000);
+}
+
+// МОДИФИЦИРОВАННЫЕ ФУНКЦИИ УПРАВЛЕНИЯ ЭКРАНАМИ
+function startGame() {
+  welcomeScreen.classList.remove('active');
+  gameScreen.classList.add('active');
+  endScreen.classList.remove('active');
+  victoryScreen.style.display = 'none';
+  
+  // Сброс и запуск таймера
+  timeLeft = GAME_DURATION;
+  updateTimer();
+  clearInterval(gameTimer);
+  gameTimer = setInterval(updateTimer, 1000);
+  
+  // Запуск музыки
+  startMusic();
+  
+  // Запуск движения точки
+  setTimeout(() => {
+    moveToRandomPosition();
+    startMoving();
+  }, 500);
+}
+
+// НОВАЯ ФУНКЦИЯ ЗАВЕРШЕНИЯ ИГРЫ С АНИМАЦИЕЙ
+function endGame() {
+  // Останавливаем обычную игру
+  gameScreen.classList.remove('active');
+  stopMusic();
+  clearInterval(gameTimer);
+  stopMoving();
+  
+  // Освобождение Wake Lock
+  if (wakeLock) {
+    wakeLock.release().then(() => {
+      wakeLock = null;
+    });
+  }
+  
+  // Сброс точки
+  dot.style.animation = 'none';
+  dot.style.background = '#ff4444';
+  
+  // Запускаем анимацию победы вместо обычного экрана завершения
+  startVictoryAnimation();
+}
+
+// ФУНКЦИЯ ДЛЯ ОБЫЧНОГО ЭКРАНА ЗАВЕРШЕНИЯ (без анимации)
+function showEndScreen() {
+  endScreen.classList.add('active');
+}
+
+function restartGame() {
+  endScreen.classList.remove('active');
+  victoryScreen.style.display = 'none';
+  welcomeScreen.classList.add('active');
+  
+  // Сбрасываем флаг анимации
+  victoryAnimationActive = false;
+}
+
+// Остальные существующие функции без изменений
+function onSilhouetteLoad() {
+  maskCanvas.width = silhouette.naturalWidth || silhouette.width;
+  maskCanvas.height = silhouette.naturalHeight || silhouette.height;
+  createMask();
+  status.textContent = 'Следите за точкой...';
+}
+
+function onSilhouetteError() {
+  status.textContent = '❌ Ошибка загрузки изображения';
+  maskCanvas.width = 300;
+  maskCanvas.height = 500;
+  createMask();
+}
+
+// Существующие функции detectBodyZone, createAttentionWave, changeDotAppearance, 
+// startMusic, stopMusic, toggleMusic, createMask, isPointInSilhouette, 
+// findValidPosition, moveToRandomPosition, startMoving, stopMoving, 
+// updateTimer, sleep остаются без изменений
+
+// Инициализация при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+  initializeApp();
+});
+
+function initializeApp() {
+  setTimeout(() => {
+    loader.style.display = 'none';
+    welcomeScreen.classList.add('active');
+  }, 1000);
+
+  initializeWakeLock();
+  setupActivityListeners();
+  preloadAudio();
+}
+
+// Остальной существующий код...
+async function initializeWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      console.log('Wake Lock активирован');
+    }
+  } catch (err) {
+    console.log('Wake Lock не поддерживается:', err);
+  }
+}
+
+function setupActivityListeners() {
+  const activityEvents = ['mousedown', 'mousemove', 'keypress', 'touchstart', 'touchmove', 'click'];
+  activityEvents.forEach(event => {
+    document.addEventListener(event, resetInactivityTimer, true);
+  });
+  resetInactivityTimer();
+}
+
+function resetInactivityTimer() {
+  if (inactivityTimer) {
+    clearTimeout(inactivityTimer);
+  }
+  
+  if (gameScreen.classList.contains('active') && !isMoving) {
+    startMoving();
+  }
+  
+  inactivityTimer = setTimeout(() => {
+    if (gameScreen.classList.contains('active')) {
+      console.log('Пользователь неактивен, перезапускаем анимацию...');
+      startMoving();
+    }
+  }, 5000);
+}
+
+function preloadAudio() {
+  if (backgroundMusic) {
+    backgroundMusic.load();
+  }
+  if (victoryMusic) {
+    victoryMusic.load();
+  }
+}
+
+// Обработка видимости страницы
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) {
+    if (isMusicPlaying && backgroundMusic) {
+      backgroundMusic.pause();
+    }
+    if (victoryAnimationActive && victoryMusic) {
+      victoryMusic.pause();
+    }
+  } else {
+    if (isMusicPlaying && backgroundMusic) {
+      backgroundMusic.play().catch(e => console.log('Автовозобновление музыки невозможно'));
+    }
+    if (victoryAnimationActive && victoryMusic) {
+      victoryMusic.play().catch(e => console.log('Автовозобновление фанфар невозможно'));
+    }
+  }
+});
+
+// Telegram Web App
+if (window.Telegram && Telegram.WebApp) {
+  Telegram.WebApp.ready();
+  Telegram.WebApp.expand();
+  
+  if (Telegram.WebApp.platform === 'ios') {
+    Telegram.WebApp.disableVerticalSwipes();
+  }
+}
+
+// Предотвращение масштабирования на iOS
+document.addEventListener('touchstart', function(e) {
+  if (e.touches.length > 1) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function(e) {
+  const now = (new Date()).getTime();
+  if (now - lastTouchEnd <= 300) {
+    e.preventDefault();
+  }
+  lastTouchEnd = now;
+}, false);
+</script>
+
+  <script>
+// УМНОЕ КЕШИРОВАНИЕ
+const APP_VERSION = "1.1.0"; // Обновил версию из-за новых функций
+
+function enableSmartCaching() {
+    const resources = [
+        ...document.querySelectorAll('link[rel="stylesheet"]'),
+        ...document.querySelectorAll('script[src]'),
+        ...document.querySelectorAll('img[src]')
+    ];
+    
+    resources.forEach(resource => {
+        const url = resource.src || resource.href;
+        if (url && !url.includes('?') && !url.includes('cdn.')) {
+            const newUrl = url.split('?')[0] + '?v=' + APP_VERSION;
+            if (resource.src) resource.src = newUrl;
+            if (resource.href) resource.href = newUrl;
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', enableSmartCaching);
+</script>
