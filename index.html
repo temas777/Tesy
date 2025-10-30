@@ -3,11 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <title>Тренажёр осознанности</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
     }
 
     body {
@@ -18,6 +24,8 @@
       justify-content: center;
       align-items: center;
       padding: 15px;
+      touch-action: manipulation;
+      -webkit-overflow-scrolling: touch;
     }
 
     .screen {
@@ -94,6 +102,7 @@
       overflow: hidden;
       margin-bottom: 15px;
       background: #000000;
+      -webkit-touch-callout: none;
     }
 
     #silhouette {
@@ -175,6 +184,7 @@
       font-weight: bold;
       white-space: nowrap;
       flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .btn:hover {
@@ -259,11 +269,32 @@
     #maskCanvas {
       display: none;
     }
+
+    /* Лоадер для предотвращения пустого экрана */
+    .loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #2c3e50 0%, #4a6572 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      color: white;
+      font-size: 18px;
+    }
   </style>
 </head>
 <body>
+  <!-- Лоадер -->
+  <div id="loader" class="loader">
+    <div>Загрузка тренажёра...</div>
+  </div>
+
   <!-- Экран приветствия -->
-  <div id="welcomeScreen" class="screen active">
+  <div id="welcomeScreen" class="screen">
     <div class="container">
       <div class="welcome-title">🎯 Тренажёр осознанности</div>
       <div class="welcome-text">
@@ -284,7 +315,7 @@
       </div>
       <div class="status" id="status">Следите за точкой...</div>
       <div class="game-area">
-        <img id="silhouette" src="person.png" alt="Силуэт человека">
+        <img id="silhouette" src="person.png" alt="Силуэт человека" onload="onSilhouetteLoad()" onerror="onSilhouetteError()">
         <div id="dot"></div>
         <div id="guidance"></div>
       </div>
@@ -304,18 +335,18 @@
   </div>
 
   <!-- Аудио элемент -->
-  <audio id="backgroundMusic" loop>
+  <audio id="backgroundMusic" loop preload="metadata">
     <source src="med.mp3" type="audio/mpeg">
   </audio>
 
   <!-- Canvas для вычислений (скрыт) -->
   <canvas id="maskCanvas"></canvas>
-
   <script>
     // Элементы
     const welcomeScreen = document.getElementById('welcomeScreen');
     const gameScreen = document.getElementById('gameScreen');
     const endScreen = document.getElementById('endScreen');
+    const loader = document.getElementById('loader');
     const dot = document.getElementById('dot');
     const silhouette = document.getElementById('silhouette');
     const maskCanvas = document.getElementById('maskCanvas');
@@ -332,6 +363,8 @@
     let gameTimer;
     let timeLeft = 300;
     let isMusicPlaying = false;
+    let wakeLock = null;
+    let inactivityTimer = null;
 
     // Настройки
     const MIN_STOP_TIME = 12000;
@@ -349,16 +382,93 @@
       'макушка': '#FFFFFF'   // белый
     };
 
+    // Инициализация при загрузке
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeApp();
+    });
+
+    // Функция инициализации приложения
+    function initializeApp() {
+      // Скрываем лоадер и показываем welcome экран
+      setTimeout(() => {
+        loader.style.display = 'none';
+        welcomeScreen.classList.add('active');
+      }, 1000);
+
+      // Инициализация Wake Lock API для предотвращения сна экрана
+      initializeWakeLock();
+      
+      // Добавляем обработчики активности пользователя
+      setupActivityListeners();
+      
+      // Предзагрузка музыки
+      preloadAudio();
+    }
+
+    // Wake Lock API для предотвращения сна экрана
+    async function initializeWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+          console.log('Wake Lock активирован');
+        }
+      } catch (err) {
+        console.log('Wake Lock не поддерживается:', err);
+      }
+    }
+
+    // Обработчики активности пользователя
+    function setupActivityListeners() {
+      const activityEvents = ['mousedown', 'mousemove', 'keypress', 'touchstart', 'touchmove', 'click'];
+      
+      activityEvents.forEach(event => {
+        document.addEventListener(event, resetInactivityTimer, true);
+      });
+      
+      resetInactivityTimer();
+    }
+
+    // Сброс таймера неактивности
+    function resetInactivityTimer() {
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+      }
+      
+      // Перезапускаем движение точки если игра активна
+      if (gameScreen.classList.contains('active') && !isMoving) {
+        startMoving();
+      }
+      
+      inactivityTimer = setTimeout(() => {
+        if (gameScreen.classList.contains('active')) {
+          console.log('Пользователь неактивен, перезапускаем анимацию...');
+          startMoving();
+        }
+      }, 5000);
+    }
+
+    // Предзагрузка аудио
+    function preloadAudio() {
+      if (backgroundMusic) {
+        backgroundMusic.load();
+      }
+    }
+
     // Загрузка изображения
-    silhouette.onload = function() {
+    function onSilhouetteLoad() {
       maskCanvas.width = silhouette.naturalWidth || silhouette.width;
       maskCanvas.height = silhouette.naturalHeight || silhouette.height;
       createMask();
-    };
+      status.textContent = 'Следите за точкой...';
+    }
 
-    silhouette.onerror = function() {
+    function onSilhouetteError() {
       status.textContent = '❌ Ошибка загрузки изображения';
-    };
+      // Создаем fallback - черный прямоугольник
+      maskCanvas.width = 300;
+      maskCanvas.height = 500;
+      createMask();
+    }
 
     // ОПРЕДЕЛЕНИЕ ЗОНЫ ТЕЛА
     function detectBodyZone(x, y) {
@@ -384,7 +494,9 @@
       document.querySelector('.game-area').appendChild(wave);
       
       setTimeout(() => {
-        wave.remove();
+        if (wave.parentNode) {
+          wave.remove();
+        }
       }, 3000);
     }
 
@@ -510,7 +622,7 @@
       dot.style.top = pos.y;
       
       // АКТИВАЦИЯ ВИЗУАЛЬНЫХ ЭФФЕКТОВ
-      const zone = detectBodyZone(pos.x, pos.y);
+      const zone = detectBodyZone(parseFloat(pos.x), parseFloat(pos.y));
       changeDotAppearance(zone);
       createAttentionWave();
       
@@ -555,19 +667,20 @@
       gameScreen.classList.add('active');
       endScreen.classList.remove('active');
       
-      // Запуск музыки
-      startMusic();
-      
-      // Сброс таймера
+      // Сброс и запуск таймера
       timeLeft = GAME_DURATION;
       updateTimer();
+      clearInterval(gameTimer);
       gameTimer = setInterval(updateTimer, 1000);
+      
+      // Запуск музыки
+      startMusic();
       
       // Запуск движения точки
       setTimeout(() => {
         moveToRandomPosition();
         startMoving();
-      }, 1000);
+      }, 500);
     }
 
     function endGame() {
@@ -578,6 +691,13 @@
       stopMusic();
       clearInterval(gameTimer);
       stopMoving();
+      
+      // Освобождение Wake Lock
+      if (wakeLock) {
+        wakeLock.release().then(() => {
+          wakeLock = null;
+        });
+      }
       
       // Сброс точки
       dot.style.animation = 'none';
@@ -593,16 +713,47 @@
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // Авто-обновление против кеша
-    if (window.location.search.indexOf('v=') === -1) {
-      window.location.search = (window.location.search ? '&' : '?') + 'v=' + Date.now();
-    }
+    // Обработка видимости страницы
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        // Страница скрыта - приостанавливаем музыку
+        if (isMusicPlaying && backgroundMusic) {
+          backgroundMusic.pause();
+        }
+      } else {
+        // Страница снова видима - возобновляем музыку если нужно
+        if (isMusicPlaying && backgroundMusic) {
+          backgroundMusic.play().catch(e => console.log('Автовозобновление музыки невозможно'));
+        }
+      }
+    });
 
     // Telegram Web App
     if (window.Telegram && Telegram.WebApp) {
       Telegram.WebApp.ready();
       Telegram.WebApp.expand();
+      
+      // Отключаем свайп для закрытия в iOS
+      if (Telegram.WebApp.platform === 'ios') {
+        Telegram.WebApp.disableVerticalSwipes();
+      }
     }
+
+    // Предотвращение масштабирования на iOS
+    document.addEventListener('touchstart', function(e) {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', function(e) {
+      const now = (new Date()).getTime();
+      if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, false);
   </script>
 </body>
 </html>
